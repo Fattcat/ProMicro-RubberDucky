@@ -1,13 +1,17 @@
 from flask import Flask, request, render_template
-import re
+import os
+import datetime
 
 app = Flask(__name__)
 
-# === SK QWERTY LAYOUT pre RAW HID (podľa Duckify) ===
-# Formát: 'znak': (modifier, keycode)
-# Modifiers: 0 = žiadny, 1 = LCtrl, 2 = LShift, 4 = LAlt, 8 = LGui, 16 = RCtrl, 32 = RShift, 64 = RAlt (AltGr)
-# Keycodes: podľa USB HID Usage Tables (0x04 = a, 0x1D = =, atď.)
+# === NASTAVENIA ===
+HISTORY = True  # Zmeň na False, ak nechceš ukladať históriu
 
+# Vytvor priečinok 'history' ak neexistuje
+if HISTORY:
+    os.makedirs('history', exist_ok=True)
+
+# === SK QWERTY LAYOUT pre RAW HID (rovnaký ako predtým) ===
 SK_KEYMAP = {
     # Písmená
     'a': (0, 4), 'b': (0, 5), 'c': (0, 6), 'd': (0, 7), 'e': (0, 8), 'f': (0, 9),
@@ -22,13 +26,10 @@ SK_KEYMAP = {
     'S': (2, 22), 'T': (2, 23), 'U': (2, 24), 'V': (2, 25), 'W': (2, 26), 'X': (2, 27),
     'Y': (2, 28), 'Z': (2, 29),
 
-    # Čísla
+    # Čísla a základ
     '1': (0, 30), '2': (0, 31), '3': (0, 32), '4': (0, 33), '5': (0, 34),
     '6': (0, 35), '7': (0, 36), '8': (0, 37), '9': (0, 38), '0': (0, 39),
-
-    ' ': (0, 44),
-    '\n': (0, 40),  # ENTER
-    '\t': (0, 43),  # TAB
+    ' ': (0, 44), '\n': (0, 40), '\t': (0, 43),
 
     # Špeciálne znaky (SK QWERTY)
     '!': (2, 30), '"': (2, 34), '#': (64, 11), '$': (2, 35), '%': (2, 36),
@@ -39,48 +40,40 @@ SK_KEYMAP = {
     '^': (64, 35), '_': (2, 45), '`': (0, 53), '{': (64, 21), '|': (64, 49),
     '}': (64, 22), '~': (64, 53),
 
-    # Diakritika (SK QWERTY)
-    'á': (64, 52), 'Á': (64+2, 52),
-    'ä': (64, 9),  'Ä': (64+2, 9),
-    'č': (64, 6),  'Č': (64+2, 6),
-    'ď': (64, 7),  'Ď': (64+2, 7),
-    'é': (64, 8),  'É': (64+2, 8),
-    'í': (64, 12), 'Í': (64+2, 12),
-    'ĺ': (64, 51), 'Ĺ': (64+2, 51),
-    'ľ': (64, 15), 'Ľ': (64+2, 15),
-    'ň': (64, 17), 'Ň': (64+2, 17),
-    'ó': (64, 18), 'Ó': (64+2, 18),
-    'ô': (64+2, 18), 'Ô': (64+2, 18),  # AltGr+Shift+O
-    'ŕ': (64, 21), 'Ŕ': (64+2, 21),
-    'š': (64, 22), 'Š': (64+2, 22),
-    'ť': (64, 23), 'Ť': (64+2, 23),
-    'ú': (64, 24), 'Ú': (64+2, 24),
-    'ý': (64, 28), 'Ý': (64+2, 28),
-    'ž': (64, 29), 'Ž': (64+2, 29),
+    # Diakritika
+    'á': (64, 52), 'Á': (66, 52),
+    'ä': (64, 9),  'Ä': (66, 9),
+    'č': (64, 6),  'Č': (66, 6),
+    'ď': (64, 7),  'Ď': (66, 7),
+    'é': (64, 8),  'É': (66, 8),
+    'í': (64, 12), 'Í': (66, 12),
+    'ĺ': (64, 51), 'Ĺ': (66, 51),
+    'ľ': (64, 15), 'Ľ': (66, 15),
+    'ň': (64, 17), 'Ň': (66, 17),
+    'ó': (64, 18), 'Ó': (66, 18),
+    'ô': (66, 18), 'Ô': (66, 18),
+    'ŕ': (64, 21), 'Ŕ': (66, 21),
+    'š': (64, 22), 'Š': (66, 22),
+    'ť': (64, 23), 'Ť': (66, 23),
+    'ú': (64, 24), 'Ú': (66, 24),
+    'ý': (64, 28), 'Ý': (66, 28),
+    'ž': (64, 29), 'Ž': (66, 29),
     '€': (64, 8),
 }
 
-# Fallback pre neznáme znaky
 def get_hid_code(char):
-    if char in SK_KEYMAP:
-        return SK_KEYMAP[char]
-    else:
-        return None  # budeme ignorovať s varovaním
+    return SK_KEYMAP.get(char)
 
 def encode_string(text):
-    """Vráti list dvojíc (modifier, keycode) pre raw HID."""
     codes = []
     for c in text:
         hid = get_hid_code(c)
         if hid:
             codes.append(hid)
-        else:
-            # Fallback: ignoruj s komentárom (alebo nahraď)
-            pass
+        # else: ignoruj neznáme znaky (alebo loguj)
     return codes
 
 def codes_to_array(codes, name):
-    """Prevod na PROGMEM uint8_t pole v C++ štýle."""
     arr = []
     for mod, key in codes:
         arr.append(str(mod))
@@ -88,7 +81,6 @@ def codes_to_array(codes, name):
     body = ', '.join(arr)
     return f"const uint8_t {name}[] PROGMEM = {{{body}}};"
 
-# === PARSING DUCKY SCRIPT ===
 def parse_ducky_script(script):
     lines = script.splitlines()
     arduino_lines = []
@@ -108,7 +100,8 @@ def parse_ducky_script(script):
             if codes:
                 name = f"key_arr_{block_id}"
                 string_blocks.append(codes_to_array(codes, name))
-                arduino_lines.append(f"    duckyString({name}, sizeof({name})); // STRING {arg[:30]}{'...' if len(arg) > 30 else ''}")
+                preview = arg[:30].replace('\n', '\\n').replace('\r', '')
+                arduino_lines.append(f"    duckyString({name}, sizeof({name})); // STRING {preview}{'...' if len(arg) > 30 else ''}")
                 block_id += 1
         elif cmd == 'DELAY':
             arduino_lines.append(f"    delay({arg}); // DELAY {arg}")
@@ -117,12 +110,9 @@ def parse_ducky_script(script):
                 arduino_lines.append("    keyboard::type(21, 0, 0, 0, 0, 0, 8); // GUI r")
             elif arg.lower() == 'm':
                 arduino_lines.append("    keyboard::type(16, 0, 0, 0, 0, 0, 8); // GUI m")
-            else:
-                # fallback pre iné GUI klávesy
-                keymap = {' ': (44, 8)}
-                if arg in 'abcdefghijklmnopqrstuvwxyz':
-                    kc = ord(arg) - ord('a') + 4
-                    arduino_lines.append(f"    keyboard::type({kc}, 0, 0, 0, 0, 0, 8); // GUI {arg}")
+            elif arg in 'abcdefghijklmnopqrstuvwxyz':
+                kc = ord(arg) - ord('a') + 4
+                arduino_lines.append(f"    keyboard::type({kc}, 0, 0, 0, 0, 0, 8); // GUI {arg}")
         elif cmd == 'ENTER':
             arduino_lines.append("    keyboard::type(40, 0, 0, 0, 0, 0, 0); // ENTER")
         elif cmd == 'TAB':
@@ -151,8 +141,19 @@ def home():
 @app.route('/convert', methods=['POST'])
 def convert_route():
     data = request.get_json()
-    script = data.get('script', '')
+    script = data.get('script', '').strip()
 
+    # === ULOŽENIE DO HISTÓRIE ===
+    if HISTORY and script:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"history/DuckyCode_{timestamp}.txt"
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(script)
+        except Exception as e:
+            print(f"[HISTÓRIA] Chyba pri ukladaní: {e}")
+
+    # === GENEROVANIE ARDUINO KÓDU ===
     string_blocks, arduino_lines = parse_ducky_script(script)
 
     full_code = f"""// [ ===== Created using local Duckify SK ===== ] //
