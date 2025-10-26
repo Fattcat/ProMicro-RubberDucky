@@ -28,7 +28,15 @@ Diy duk
 - connect SD card, button, LED diode with wires
 - upload code
 - add your ducky code into ```inject.txt```
-ejejejrj 
+
+# connection
+- D14 (MISO)
+- D16 (MOSI)
+- D15 (SCK)
+- D10 (CS)
+- D2 → GND
+- LED D13 → GND
+
 # Components needed
 - Pro Micro
 - Led Diode (Green)
