@@ -1,0 +1,9 @@
+REM toto bude v inject.txt v SD karte Test SK
+REM file for SD card
+DELAY 1000
+STRING Čaves, svet! áäčďéíľšťž €@#[]\|{}
+ENTER
+GUI r
+DELAY 500
+STRING notepad
+ENTER
