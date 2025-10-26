@@ -7,13 +7,12 @@ app = Flask(__name__)
 # === NASTAVENIA ===
 HISTORY = True  # Zmeň na False, ak nechceš ukladať históriu
 
-# Vytvor priečinok 'history' ak neexistuje
 if HISTORY:
     os.makedirs('history', exist_ok=True)
 
-# === SK QWERTY LAYOUT pre RAW HID (rovnaký ako predtým) ===
+# === SK QWERTY LAYOUT pre RAW HID ===
 SK_KEYMAP = {
-    # Písmená
+    # Základné písmená
     'a': (0, 4), 'b': (0, 5), 'c': (0, 6), 'd': (0, 7), 'e': (0, 8), 'f': (0, 9),
     'g': (0, 10), 'h': (0, 11), 'i': (0, 12), 'j': (0, 13), 'k': (0, 14), 'l': (0, 15),
     'm': (0, 16), 'n': (0, 17), 'o': (0, 18), 'p': (0, 19), 'q': (0, 20), 'r': (0, 21),
@@ -70,7 +69,6 @@ def encode_string(text):
         hid = get_hid_code(c)
         if hid:
             codes.append(hid)
-        # else: ignoruj neznáme znaky (alebo loguj)
     return codes
 
 def codes_to_array(codes, name):
@@ -78,8 +76,7 @@ def codes_to_array(codes, name):
     for mod, key in codes:
         arr.append(str(mod))
         arr.append(str(key))
-    body = ', '.join(arr)
-    return f"const uint8_t {name}[] PROGMEM = {{{body}}};"
+    return f"const uint8_t {name}[] PROGMEM = {{{', '.join(arr)}}};"
 
 def parse_ducky_script(script):
     lines = script.splitlines()
@@ -100,37 +97,37 @@ def parse_ducky_script(script):
             if codes:
                 name = f"key_arr_{block_id}"
                 string_blocks.append(codes_to_array(codes, name))
-                preview = arg[:30].replace('\n', '\\n').replace('\r', '')
-                arduino_lines.append(f"    duckyString({name}, sizeof({name})); // STRING {preview}{'...' if len(arg) > 30 else ''}")
+                preview = arg[:30].replace('\n', '\\n')
+                arduino_lines.append(f"  duckyString({name}, sizeof({name})); // STRING {preview}{'...' if len(arg) > 30 else ''}")
                 block_id += 1
         elif cmd == 'DELAY':
-            arduino_lines.append(f"    delay({arg}); // DELAY {arg}")
+            arduino_lines.append(f"  delay({arg}); // DELAY {arg}")
         elif cmd == 'GUI' or cmd == 'WINDOWS':
             if arg.lower() == 'r':
-                arduino_lines.append("    keyboard::type(21, 0, 0, 0, 0, 0, 8); // GUI r")
+                arduino_lines.append("  keyboard::type(21, 0, 0, 0, 0, 0, 8); // GUI r")
             elif arg.lower() == 'm':
-                arduino_lines.append("    keyboard::type(16, 0, 0, 0, 0, 0, 8); // GUI m")
+                arduino_lines.append("  keyboard::type(16, 0, 0, 0, 0, 0, 8); // GUI m")
             elif arg in 'abcdefghijklmnopqrstuvwxyz':
                 kc = ord(arg) - ord('a') + 4
-                arduino_lines.append(f"    keyboard::type({kc}, 0, 0, 0, 0, 0, 8); // GUI {arg}")
+                arduino_lines.append(f"  keyboard::type({kc}, 0, 0, 0, 0, 0, 8); // GUI {arg}")
         elif cmd == 'ENTER':
-            arduino_lines.append("    keyboard::type(40, 0, 0, 0, 0, 0, 0); // ENTER")
+            arduino_lines.append("  keyboard::type(40, 0, 0, 0, 0, 0, 0); // ENTER")
         elif cmd == 'TAB':
-            arduino_lines.append("    keyboard::type(43, 0, 0, 0, 0, 0, 0); // TAB")
+            arduino_lines.append("  keyboard::type(43, 0, 0, 0, 0, 0, 0); // TAB")
         elif cmd == 'SPACE':
-            arduino_lines.append("    keyboard::type(44, 0, 0, 0, 0, 0, 0); // SPACE")
+            arduino_lines.append("  keyboard::type(44, 0, 0, 0, 0, 0, 0); // SPACE")
         elif cmd == 'UP':
-            arduino_lines.append("    keyboard::type(82, 0, 0, 0, 0, 0, 0); // UP")
+            arduino_lines.append("  keyboard::type(82, 0, 0, 0, 0, 0, 0); // UP")
         elif cmd == 'DOWN':
-            arduino_lines.append("    keyboard::type(81, 0, 0, 0, 0, 0, 0); // DOWN")
+            arduino_lines.append("  keyboard::type(81, 0, 0, 0, 0, 0, 0); // DOWN")
         elif cmd == 'LEFT':
-            arduino_lines.append("    keyboard::type(80, 0, 0, 0, 0, 0, 0); // LEFT")
+            arduino_lines.append("  keyboard::type(80, 0, 0, 0, 0, 0, 0); // LEFT")
         elif cmd == 'RIGHT':
-            arduino_lines.append("    keyboard::type(79, 0, 0, 0, 0, 0, 0); // RIGHT")
+            arduino_lines.append("  keyboard::type(79, 0, 0, 0, 0, 0, 0); // RIGHT")
         elif cmd == 'ALT' and arg.upper() == 'TAB':
-            arduino_lines.append("    keyboard::type(43, 0, 0, 0, 0, 0, 4); // ALT TAB")
+            arduino_lines.append("  keyboard::type(43, 0, 0, 0, 0, 0, 4); // ALT TAB")
         else:
-            arduino_lines.append(f"    // Nepodporovaný príkaz: {line}")
+            arduino_lines.append(f"  // Nepodporovaný príkaz: {line}")
 
     return string_blocks, arduino_lines
 
@@ -151,7 +148,7 @@ def convert_route():
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(script)
         except Exception as e:
-            print(f"[HISTÓRIA] Chyba pri ukladaní: {e}")
+            print(f"[HISTÓRIA] Chyba: {e}")
 
     # === GENEROVANIE ARDUINO KÓDU ===
     string_blocks, arduino_lines = parse_ducky_script(script)
@@ -162,6 +159,9 @@ def convert_route():
 // Keyboard Layout: SK (QWERTY)
 
 #include <HID.h>
+
+const int buttonPin = 2;   // D2 – tlačidlo medzi D2 a GND
+const int greenLed = 13;   // Built-in LED
 
 namespace keyboard {{
     typedef struct report {{
@@ -215,13 +215,30 @@ void duckyString(const uint8_t* keys, size_t len) {{
     }}
 }}
 
-void setup() {{
-    keyboard::begin();
-    delay(2000);
-{chr(10).join([''] + string_blocks + arduino_lines)}
+{chr(10).join(string_blocks)}
+
+void StartJob() {{
+{chr(10).join(arduino_lines)}
 }}
 
-void loop() {{}}
+void setup() {{
+    pinMode(buttonPin, INPUT_PULLUP);
+    pinMode(greenLed, OUTPUT);
+    keyboard::begin();
+    delay(2000); // čakanie na inicializáciu HID
+}}
+
+void loop() {{
+    if (digitalRead(buttonPin) == LOW) {{
+        delay(50); // debouncing
+        if (digitalRead(buttonPin) == LOW) {{
+            StartJob();
+            digitalWrite(greenLed, HIGH);
+            delay(1000);
+            digitalWrite(greenLed, LOW);
+        }}
+    }}
+}}
 
 // Created using local Duckify SK – full Slovak HID support
 """
