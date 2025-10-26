@@ -1,6 +1,11 @@
 # ProMicro-RubberDucky
 Diy duck
 
+| ------- | -------------- | --- |
+| Support | SK keyboard    | ✅  |
+| ------- | -------------- | --- |
+| Support | other keyboard | ❌  |
+
 # setup
 ## ! FOR EDUCATIONAL PURPOSES ONLY !
 
