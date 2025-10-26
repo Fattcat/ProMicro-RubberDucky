@@ -1,0 +1,11 @@
+STRING Ahoj, toto je Test yYzZ +=/_<>[])(*&^%$#@!-'":;,?.-`~\|{} __ hello
+DELAY 100
+GUI r
+DELAY 100
+REM toto je komentár takže ho kód ignoruje
+GUI m
+DELAY 100
+UP
+ALT TAB
+DELAY 2000
+STRING To bol krátky testovací kód, že či to zvládne :)
